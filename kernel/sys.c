@@ -46,6 +46,11 @@
 #include <linux/ctype.h>
 #include <linux/syscall_user_dispatch.h>
 
+//New header files for speculative sys calls
+#include <linux/wait.h>
+#include <linux/sched/signal.h>
+
+
 #include <linux/compat.h>
 #include <linux/syscalls.h>
 #include <linux/kprobes.h>
@@ -386,6 +391,93 @@ SYSCALL_DEFINE2(pnitish, struct prcs_nitish  __user *, pf, pid_t, pid)
 
 	return 0;
 }
+
+
+//wait queue and conditions
+DECLARE_WAIT_QUEUE_HEAD(wait_queue);
+static bool ready_to_wake = false;
+
+SYSCALL_DEFINE0(create_spec)
+{
+	printk(KERN_ALERT "create_spec(): invoked by process %d\n", current->pid);
+        int pid_new = fork();
+
+	if (pid_new == 0){
+		printk(KERN_ALERT "create_spec(): new checkpoint process %d\n", current->pid);
+		//todo
+		wait_event_interruptible(wait_queue, ready_to_wake);
+        	ready_to_wake = false;		
+		return 0;
+	}
+	else if (pid_new > 0) {
+		printk(KERN_ALERT "create_spec(): invoked by parent process %d returning child pid %d", current->pid, pid_new);
+		return pid_new;
+	}
+	
+	/*
+        rcu_read_lock();
+        pid = task_tgid_vnr(rcu_dereference(current->real_parent));
+        rcu_read_unlock();
+	*/
+
+	//return -1 if fork failed
+        return -1;
+}
+
+SYSCALL_DEFINE1(fail_spec, pid_t, pid)
+{
+	//task = pid_task(find_get_pid(pid), PIDTYPE_PID);
+	printk(KERN_ALERT "fail_spec(): invoked by process %d to wake up process %d\n", current->pid, pid);
+	
+	struct task_struct* task;
+    	
+	rcu_read_lock();
+    	task = pid_task(find_vpid(pid), PIDTYPE_PID);
+    	if (task) {
+		printk(KERN_ALERT "fail_spec(): going to wake up process %d\n", pid);
+        	ready_to_wake = true;
+        	wake_up_interruptible(&wait_queue);
+    	}
+    	rcu_read_unlock();
+
+	printk(KERN_ALERT "fail_spec(): killing parent process %d\n", current->pid);
+	//do_exit(0); need to check if the calling process needs to be killed here.
+        
+	return 0;
+}
+
+
+SYSCALL_DEFINE1(commit_spec, pid_t, pid)
+{
+	printk(KERN_ALERT "commit_spec(): invoked by process %d to kill process %d\n", current->pid, pid);
+	struct task_struct* task;
+    
+	rcu_read_lock();
+    	task = pid_task(find_vpid(pid), PIDTYPE_PID);
+    	if (task) {
+
+        	if (signal_pending(task)) {
+            		// Check if the task is already about to be killed
+            		rcu_read_unlock();
+			printk(KERN_ALERT "commit_spec(): process %d has pending signal to be killed\n", pid);
+            		return -1;
+        	}
+
+        // Send a SIGKILL signal to terminate the child process
+        send_sig(SIGKILL, task, 0);
+	printk(KERN_ALERT "commit_spec(): successfully terminated the  process %d\n", pid);
+
+    	} else {
+        	rcu_read_unlock();
+		printk(KERN_ALERT "commit_spec(): process %d not found\n", pid);
+        	return -1;  // Process not found
+    	}
+
+    	rcu_read_unlock();
+
+    	return 0;
+}
+
 
 /*
  * Unprivileged users may change the real gid to the effective gid
