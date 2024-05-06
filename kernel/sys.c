@@ -400,7 +400,19 @@ static bool ready_to_wake = false;
 SYSCALL_DEFINE0(create_spec)
 {
 	printk(KERN_ALERT "create_spec(): invoked by process %d\n", current->pid);
-        int pid_new = fork();
+        
+	struct kernel_clone_args args = {
+        	.flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | SIGCHLD,
+        	.pidfd = NULL,
+        	.child_tid = NULL,
+        	.parent_tid = NULL,
+        	.exit_signal = SIGCHLD,
+        	.stack = 0,
+        	.stack_size = 0,
+        	.tls = 0
+    	};
+
+    	pid_t pid_new = kernel_clone(&args);
 
 	if (pid_new == 0){
 		printk(KERN_ALERT "create_spec(): new checkpoint process %d\n", current->pid);
