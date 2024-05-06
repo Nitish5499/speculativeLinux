@@ -1069,6 +1069,7 @@ asmlinkage long sys_pnitish(struct prcs_nitish __user *pf, pid_t pid);
 asmlinkage long sys_create_spec(void);
 asmlinkage long sys_commit_spec(pid_t pid);
 asmlinkage long sys_fail_spec(pid_t pid);
+asmlinkage long sys_move_to_waitqueue(void);
 
 /* obsolete */
 asmlinkage long sys_stime(__kernel_old_time_t __user *tptr);

@@ -71,6 +71,12 @@
 #include <linux/cred.h>
 #include <linux/unistd.h>
 
+#include <linux/kthread.h>
+#include <linux/errno.h>
+
+
+
+
 #include <linux/nospec.h>
 
 #include <linux/kmsg_dump.h>
@@ -397,21 +403,43 @@ SYSCALL_DEFINE2(pnitish, struct prcs_nitish  __user *, pf, pid_t, pid)
 DECLARE_WAIT_QUEUE_HEAD(wait_queue);
 static bool ready_to_wake = false;
 
+
 SYSCALL_DEFINE0(create_spec)
 {
+	int parent_id = current->pid;
 	printk(KERN_ALERT "create_spec(): invoked by process %d\n", current->pid);
-        int pid_new = fork();
+        
+	struct kernel_clone_args args = {
+    .flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND,
+    .pidfd = NULL,
+    .child_tid = NULL,
+    .parent_tid = NULL,
+    .exit_signal = 0,  // No signal is sent to the parent process on exit
+    .stack = 0,
+    .stack_size = 0,
+    .tls = 0
+};
 
-	if (pid_new == 0){
+    pid_t pid_new = kernel_clone(&args);
+
+   printk(KERN_INFO "create_spec(): kernel_clone returned %d\n", pid_new);
+
+   if (pid_new < 0) {
+		printk(KERN_ALERT "pinfo(): Invalid argument\n");
+		return -EINVAL;
+	}
+
+	else if(current->pid == parent_id){
+		printk(KERN_ALERT "create_spec(): invoked by parent process %d returning child pid %d", current->pid, pid_new);
+		return pid_new;
+		
+	}
+	else  {
 		printk(KERN_ALERT "create_spec(): new checkpoint process %d\n", current->pid);
 		//todo
 		wait_event_interruptible(wait_queue, ready_to_wake);
-        	ready_to_wake = false;		
+        ready_to_wake = false;		
 		return 0;
-	}
-	else if (pid_new > 0) {
-		printk(KERN_ALERT "create_spec(): invoked by parent process %d returning child pid %d", current->pid, pid_new);
-		return pid_new;
 	}
 	
 	/*
@@ -422,6 +450,7 @@ SYSCALL_DEFINE0(create_spec)
 
 	//return -1 if fork failed
         return -1;
+    //return current->pid;
 }
 
 SYSCALL_DEFINE1(fail_spec, pid_t, pid)
@@ -478,6 +507,14 @@ SYSCALL_DEFINE1(commit_spec, pid_t, pid)
     	return 0;
 }
 
+SYSCALL_DEFINE0(move_to_waitqueue)
+{
+	printk(KERN_ALERT "create_spec(): new checkpoint process %d\n", current->pid);
+	//todo
+	wait_event_interruptible(wait_queue, ready_to_wake);
+    ready_to_wake = false;		
+	return 0;
+}
 
 /*
  * Unprivileged users may change the real gid to the effective gid

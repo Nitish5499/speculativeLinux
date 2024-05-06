@@ -836,10 +836,12 @@ __SYSCALL(__NR_create_spec, sys_create_spec)
 __SYSCALL(__NR_commit_spec, sys_commit_spec)
 #define __NR_fail_spec 460
 __SYSCALL(__NR_fail_spec, sys_fail_spec)
+#define __NR_move_to_waitqueue 461
+__SYSCALL(__NR_move_to_waitqueue, sys_move_to_waitqueue)
 
 #undef __NR_syscalls
 //#define __NR_syscalls 457
-#define __NR_syscalls 461
+#define __NR_syscalls 462
 
 /*	
 struct prcs_nitish {
