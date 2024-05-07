@@ -46,6 +46,11 @@
 #include <linux/ctype.h>
 #include <linux/syscall_user_dispatch.h>
 
+//New header files for speculative sys calls
+#include <linux/wait.h>
+#include <linux/sched/signal.h>
+
+
 #include <linux/compat.h>
 #include <linux/syscalls.h>
 #include <linux/kprobes.h>
@@ -65,6 +70,12 @@
 #include <linux/uidgid.h>
 #include <linux/cred.h>
 #include <linux/unistd.h>
+
+#include <linux/kthread.h>
+#include <linux/errno.h>
+
+
+
 
 #include <linux/nospec.h>
 
@@ -384,6 +395,124 @@ SYSCALL_DEFINE2(pnitish, struct prcs_nitish  __user *, pf, pid_t, pid)
 		return -EINVAL;
 	}
 
+	return 0;
+}
+
+
+//wait queue and conditions
+DECLARE_WAIT_QUEUE_HEAD(wait_queue);
+static bool ready_to_wake = false;
+
+
+SYSCALL_DEFINE0(create_spec)
+{
+	int parent_id = current->pid;
+	printk(KERN_ALERT "create_spec(): invoked by process %d\n", current->pid);
+        
+	struct kernel_clone_args args = {
+    .flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND,
+    .pidfd = NULL,
+    .child_tid = NULL,
+    .parent_tid = NULL,
+    .exit_signal = 0,  // No signal is sent to the parent process on exit
+    .stack = 0,
+    .stack_size = 0,
+    .tls = 0
+};
+
+    pid_t pid_new = kernel_clone(&args);
+
+   printk(KERN_INFO "create_spec(): kernel_clone returned %d\n", pid_new);
+
+   if (pid_new < 0) {
+		printk(KERN_ALERT "pinfo(): Invalid argument\n");
+		return -EINVAL;
+	}
+
+	else if(current->pid == parent_id){
+		printk(KERN_ALERT "create_spec(): invoked by parent process %d returning child pid %d", current->pid, pid_new);
+		return pid_new;
+		
+	}
+	else  {
+		printk(KERN_ALERT "create_spec(): new checkpoint process %d\n", current->pid);
+		//todo
+		wait_event_interruptible(wait_queue, ready_to_wake);
+        ready_to_wake = false;		
+		return 0;
+	}
+	
+	/*
+        rcu_read_lock();
+        pid = task_tgid_vnr(rcu_dereference(current->real_parent));
+        rcu_read_unlock();
+	*/
+
+	//return -1 if fork failed
+        return -1;
+    //return current->pid;
+}
+
+SYSCALL_DEFINE1(fail_spec, pid_t, pid)
+{
+	//task = pid_task(find_get_pid(pid), PIDTYPE_PID);
+	printk(KERN_ALERT "fail_spec(): invoked by process %d to wake up process %d\n", current->pid, pid);
+	
+	struct task_struct* task;
+    	
+	rcu_read_lock();
+    	task = pid_task(find_vpid(pid), PIDTYPE_PID);
+    	if (task) {
+		printk(KERN_ALERT "fail_spec(): going to wake up process %d\n", pid);
+        	ready_to_wake = true;
+        	wake_up_interruptible(&wait_queue);
+    	}
+    	rcu_read_unlock();
+
+	printk(KERN_ALERT "fail_spec(): killing parent process %d\n", current->pid);
+	//do_exit(0); need to check if the calling process needs to be killed here.
+        
+	return 0;
+}
+
+
+SYSCALL_DEFINE1(commit_spec, pid_t, pid)
+{
+	printk(KERN_ALERT "commit_spec(): invoked by process %d to kill process %d\n", current->pid, pid);
+	struct task_struct* task;
+    
+	rcu_read_lock();
+    	task = pid_task(find_vpid(pid), PIDTYPE_PID);
+    	if (task) {
+
+        	if (signal_pending(task)) {
+            		// Check if the task is already about to be killed
+            		rcu_read_unlock();
+			printk(KERN_ALERT "commit_spec(): process %d has pending signal to be killed\n", pid);
+            		return -1;
+        	}
+
+        // Send a SIGKILL signal to terminate the child process
+        send_sig(SIGKILL, task, 0);
+	printk(KERN_ALERT "commit_spec(): successfully terminated the  process %d\n", pid);
+
+    	} else {
+        	rcu_read_unlock();
+		printk(KERN_ALERT "commit_spec(): process %d not found\n", pid);
+        	return -1;  // Process not found
+    	}
+
+    	rcu_read_unlock();
+
+    	return 0;
+}
+
+SYSCALL_DEFINE0(move_to_waitqueue)
+{
+	printk(KERN_ALERT "create_spec(): new checkpoint process %d\n", current->pid);
+	//todo
+	wait_event_interruptible(wait_queue, ready_to_wake);
+    ready_to_wake = false;		
 	return 0;
 }
 

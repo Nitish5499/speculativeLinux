@@ -830,10 +830,28 @@ __SYSCALL(__NR_futex_wait, sys_futex_wait)
 __SYSCALL(__NR_futex_requeue, sys_futex_requeue)
 #define __NR_pnitish 457
 __SYSCALL(__NR_pnitish, sys_pnitish)
+#define __NR_create_spec 458
+__SYSCALL(__NR_create_spec, sys_create_spec)
+#define __NR_commit_spec 459
+__SYSCALL(__NR_commit_spec, sys_commit_spec)
+#define __NR_fail_spec 460
+__SYSCALL(__NR_fail_spec, sys_fail_spec)
+#define __NR_move_to_waitqueue 461
+__SYSCALL(__NR_move_to_waitqueue, sys_move_to_waitqueue)
 
 #undef __NR_syscalls
 //#define __NR_syscalls 457
-#define __NR_syscalls 458
+#define __NR_syscalls 462
+
+/*	
+struct prcs_nitish {
+        int prio;                       // priority
+        long state;                     // -1 unrunnable, 0 runnable, >0 stopped 
+        unsigned int cpu;               // Current CPU
+        unsigned long nvcsw;            // context switch count
+        unsigned long long start_time;  // start time in ns
+};
+*/
 
 /*
  * 32 bit systems traditionally used different

@@ -1064,6 +1064,13 @@ asmlinkage long sys_sysfs(int option,
 asmlinkage long sys_fork(void);
 //Custom system call, struct prcs_nitish is defined in /linux/include/uapi/asm-generic/unistd.h
 asmlinkage long sys_pnitish(struct prcs_nitish __user *pf, pid_t pid);
+
+//System calls for speculative support
+asmlinkage long sys_create_spec(void);
+asmlinkage long sys_commit_spec(pid_t pid);
+asmlinkage long sys_fail_spec(pid_t pid);
+asmlinkage long sys_move_to_waitqueue(void);
+
 /* obsolete */
 asmlinkage long sys_stime(__kernel_old_time_t __user *tptr);
 asmlinkage long sys_stime32(old_time32_t __user *tptr);

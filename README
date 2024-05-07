@@ -1,18 +1,24 @@
-Linux kernel
-============
+This is our CSE 506 Project - Implementing Speculative Execution using custom system calls in the Linux Kernel.
 
-There are several guides for kernel developers and users. These guides can
-be rendered in a number of formats, like HTML and PDF. Please read
-Documentation/admin-guide/README.rst first.
+The kernel can be compiled using the following commands :
+1. sudo make -j$(nproc)
+2. sudo make modules_install
+3. sudo make install
+4. sudo update-grub
+5. reboot
 
-In order to build the documentation, use ``make htmldocs`` or
-``make pdfdocs``.  The formatted documentation can also be read online at:
+The following system calls were added:
+1. create_spec - to create a checkpointed process
+2. move_to_waitqueue - move the current process to the wait queue
+3. commit_spec - commit the current speculation and kill the checkpointed process
+4. fail_spec - bring the checkpointed process from wait queue( state INTERRUPTIBLE) to ready. The current process will be idled.
 
-    https://www.kernel.org/doc/html/latest/
+Registered System Calls are visible in the file /proc/kallsyms
 
-There are various text files in the Documentation/ subdirectory,
-several of them using the Restructured Text markup notation.
+The evaluation codes are for the different scenarios given in the project report. 
 
-Please read the Documentation/process/changes.rst file, as it contains the
-requirements for building and running the kernel, and information about
-the problems which may result by upgrading your kernel.
+They can be compiled as gcc -o <enter output object name> <file_name>.c
+and timed using time ./<output object/executable>
+
+System calls can be traced using strace -f ./<output object/executable>
+
